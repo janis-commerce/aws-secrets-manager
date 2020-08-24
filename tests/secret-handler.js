@@ -4,7 +4,6 @@ const assert = require('assert');
 const sinon = require('sinon');
 
 const SecretHandler = require('../lib/secret-handler');
-// const SecretValueCache = require('../lib/secret-value-cache');
 
 const AWS = require('../lib/wrappers/aws');
 
@@ -128,6 +127,55 @@ describe('Secret Handler', () => {
 		});
 	});
 
+	describe('setVersionId()', () => {
+
+		let secretHandler;
+
+		beforeEach(() => {
+			secretHandler = new SecretHandler(secretName);
+		});
+
+		it('Should be chainable', async () => {
+			const returnValue = secretHandler.setVersionId('SOMEID');
+
+			assert.strictEqual(returnValue, secretHandler);
+		});
+	});
+
+	describe('setVersionStage()', () => {
+
+		let secretHandler;
+
+		beforeEach(() => {
+			secretHandler = new SecretHandler(secretName);
+		});
+
+		it('Should be chainable', async () => {
+			const returnValue = secretHandler.setVersionStage('SOMESTAGE');
+
+			assert.strictEqual(returnValue, secretHandler);
+		});
+	});
+
+	describe('clearFromCache()', () => {
+
+		let secretHandler;
+
+		beforeEach(() => {
+			secretHandler = new SecretHandler(secretName);
+		});
+
+		it('Should be chainable', async () => {
+			const returnValue = secretHandler.clearFromCache();
+
+			assert.strictEqual(returnValue, secretHandler);
+		});
+
+		it('Should do just nothing if a non-existent cache is cleared', async () => {
+			assert.doesNotThrow(() => secretHandler.clearFromCache());
+		});
+	});
+
 	describe('getValue() Cache behaviour', () => {
 
 		let secretHandler;
@@ -144,10 +192,6 @@ describe('Secret Handler', () => {
 		});
 
 		afterEach(() => sinon.restore());
-
-		it('Should do just nothing if a non-existent cache is cleared', async () => {
-			assert.doesNotThrow(() => secretHandler.clearFromCache());
-		});
 
 		it('Should only call AWS Secrets Manager once per secret version and ID', async () => {
 
