@@ -1,6 +1,6 @@
 {
   "name": "@janiscommerce/aws-secrets-manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A handler of AWS Secrets Manager with cache for node",
   "main": "lib/index.js",
   "scripts": {
