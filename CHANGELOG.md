@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.0.1] - 2023-03-09
+### Fixed
+- Fix getting a secret value
+
 ## [1.0.0] - 2023-02-23
 ### Changed
 - Now the package use the AWS SDK `V3`
