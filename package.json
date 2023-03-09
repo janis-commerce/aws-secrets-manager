@@ -34,6 +34,6 @@
     "test": "tests"
   },
   "dependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.276.0"
+    "@aws-sdk/client-secrets-manager": "^3.287.0"
   }
 }

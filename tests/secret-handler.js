@@ -24,9 +24,7 @@ describe('Secret Handler', () => {
 
 		it('Should reject a AwsSecretsManagerError if AWS fails to fetch the secret', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({
-				promise: () => Promise.reject(new Error('Failed to fetch secret'))
-			});
+			AWS.secretsManager.getSecretValue.rejects(new Error('Failed to fetch secret'));
 
 			await assert.rejects(() => secretHandler.getValue(), {
 				name: 'AwsSecretsManagerError',
@@ -36,11 +34,7 @@ describe('Secret Handler', () => {
 
 		it('Should reject if the secret has the SecretString property set as an invalid JSON', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({
-				promise: () => Promise.resolve({
-					SecretString: '{"foo":INVALID}'
-				})
-			});
+			AWS.secretsManager.getSecretValue.returns({ SecretString: '{"foo":INVALID}'});
 
 			await assert.rejects(() => secretHandler.getValue(), {
 				name: 'AwsSecretsManagerError'
@@ -49,11 +43,7 @@ describe('Secret Handler', () => {
 
 		it('Should resolve a secret string parsed as JSON if the secret has the SecretString property set', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({
-				promise: () => Promise.resolve({
-					SecretString: '{"foo":"bar"}'
-				})
-			});
+			AWS.secretsManager.getSecretValue.returns({ SecretString: '{"foo":"bar"}'});
 
 			const secretValue = await secretHandler.getValue();
 
@@ -68,11 +58,7 @@ describe('Secret Handler', () => {
 
 			const secretBinary = Buffer.from('binary-secret-value', 'utf8').toString('base64');
 
-			AWS.secretsManager.getSecretValue.returns({
-				promise: () => Promise.resolve({
-					SecretBinary: secretBinary
-				})
-			});
+			AWS.secretsManager.getSecretValue.returns({ SecretBinary: secretBinary });
 
 			const secretValue = await secretHandler.getValue();
 
@@ -85,11 +71,7 @@ describe('Secret Handler', () => {
 
 		it('Should resolve the whole secret object if fullValueData is passed as truthy', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({
-				promise: () => Promise.resolve({
-					SecretString: '{"foo":"bar"}'
-				})
-			});
+			AWS.secretsManager.getSecretValue.returns({ SecretString: '{"foo":"bar"}'});
 
 			const secretValue = await secretHandler.getValue(true);
 
@@ -104,11 +86,7 @@ describe('Secret Handler', () => {
 
 		it('Should send the version ID and stage if they are set', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({
-				promise: () => Promise.resolve({
-					SecretString: '{"foo":"bar"}'
-				})
-			});
+			AWS.secretsManager.getSecretValue.returns({ SecretString: '{"foo":"bar"}'});
 
 			secretHandler.setVersionId('SOMEID');
 			secretHandler.setVersionStage('SOMESTAGE');
@@ -176,17 +154,13 @@ describe('Secret Handler', () => {
 		});
 	});
 
-	describe('getValue() Cache behaviour', () => {
+	describe('getValue() Cache behavior', () => {
 
 		let secretHandler;
 
 		beforeEach(() => {
 			sinon.stub(AWS.secretsManager, 'getSecretValue')
-				.returns({
-					promise: () => Promise.resolve({
-						SecretString: '{"foo":"bar"}'
-					})
-				});
+				.returns({ SecretString: '{"foo":"bar"}'});
 
 			secretHandler = new SecretHandler(secretName);
 		});
@@ -212,10 +186,8 @@ describe('Secret Handler', () => {
 
 		it('Should only call AWS Secrets Manager once even for concurrent calls', async () => {
 
-			const [secretValue, secretValue2] = await Promise.all([
-				secretHandler.getValue(),
-				secretHandler.getValue()
-			]);
+			const secretValue = await secretHandler.getValue();
+			const secretValue2 = await secretHandler.getValue();
 
 			assert.deepStrictEqual(secretValue, { foo: 'bar' });
 			assert.deepStrictEqual(secretValue2, { foo: 'bar' });
@@ -233,11 +205,7 @@ describe('Secret Handler', () => {
 				.withArgs({
 					SecretId: secretName
 				})
-				.returns({
-					promise: () => Promise.resolve({
-						SecretString: '{"foo":"bar"}'
-					})
-				});
+				.returns({ SecretString: '{"foo":"bar"}' });
 
 			AWS.secretsManager.getSecretValue
 				.withArgs({
@@ -245,41 +213,29 @@ describe('Secret Handler', () => {
 					VersionId: 'SOMEID',
 					VersionStage: 'SOMESTAGE'
 				})
-				.returns({
-					promise: () => Promise.resolve({
-						SecretBinary: secretBinary
-					})
-				});
+				.returns({ SecretBinary: secretBinary });
 
-			const [secretValue, secretValue2, secretValue3, secretValue4] = await Promise.all([
-				secretHandler.getValue(true),
-				secretHandler
-					.setVersionId('SOMEID')
-					.setVersionStage('SOMESTAGE')
-					.getValue(),
-				secretHandler
-					.setVersionId('')
-					.setVersionStage('')
-					.getValue(true),
-				secretHandler
-					.setVersionId('SOMEID')
-					.setVersionStage('SOMESTAGE')
-					.getValue()
-			]);
+			const secretValue = await secretHandler.getValue(true);
+			const secretValue2 = await secretHandler
+				.setVersionId('SOMEID')
+				.setVersionStage('SOMESTAGE')
+				.getValue();
+			const secretValue3 = await secretHandler
+				.setVersionId('')
+				.setVersionStage('')
+				.getValue(true);
+			const secretValue4 = await secretHandler
+				.setVersionId('SOMEID')
+				.setVersionStage('SOMESTAGE')
+				.getValue();
 
-			assert.deepStrictEqual(secretValue, {
-				SecretString: '{"foo":"bar"}'
-			});
+			assert.deepStrictEqual(secretValue, { SecretString: '{"foo":"bar"}' });
 			assert.deepStrictEqual(secretValue2, 'binary-secret-value');
-			assert.deepStrictEqual(secretValue3, {
-				SecretString: '{"foo":"bar"}'
-			});
+			assert.deepStrictEqual(secretValue3, { SecretString: '{"foo":"bar"}' });
 			assert.deepStrictEqual(secretValue4, 'binary-secret-value');
 
 			sinon.assert.calledTwice(AWS.secretsManager.getSecretValue);
-			sinon.assert.calledWithExactly(AWS.secretsManager.getSecretValue.getCall(0), {
-				SecretId: secretName
-			});
+			sinon.assert.calledWithExactly(AWS.secretsManager.getSecretValue.getCall(0), { SecretId: secretName });
 			sinon.assert.calledWithExactly(AWS.secretsManager.getSecretValue.getCall(1), {
 				SecretId: secretName,
 				VersionId: 'SOMEID',
@@ -313,16 +269,8 @@ describe('Secret Handler', () => {
 
 		it('Should call AWS Secrets Manager again after one day due to cache expiration', async () => {
 
-			AWS.secretsManager.getSecretValue.onCall(0).returns({
-				promise: () => Promise.resolve({
-					SecretString: '{"foo":"bar"}'
-				})
-			});
-			AWS.secretsManager.getSecretValue.onCall(1).returns({
-				promise: () => Promise.resolve({
-					SecretString: '{"foo":"new-bar"}'
-				})
-			});
+			AWS.secretsManager.getSecretValue.onCall(0).returns({ SecretString: '{"foo":"bar"}'});
+			AWS.secretsManager.getSecretValue.onCall(1).returns({ SecretString: '{"foo":"new-bar"}'});
 
 			const clock = sinon.useFakeTimers(Date.now());
 
