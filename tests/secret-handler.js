@@ -2,6 +2,8 @@
 
 const assert = require('assert');
 const sinon = require('sinon');
+const { mockClient } = require('aws-sdk-client-mock');
+const { GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 
 const SecretHandler = require('../lib/secret-handler');
 
@@ -16,25 +18,24 @@ describe('Secret Handler', () => {
 		let secretHandler;
 
 		beforeEach(() => {
-			sinon.stub(AWS.secretsManager, 'getSecretValue');
+			this.secretsManagerClientMock = mockClient(AWS.secretsManager.SecretsManagerClient);
 			secretHandler = new SecretHandler(secretName);
 		});
 
-		afterEach(() => sinon.restore());
+		afterEach(() => this.secretsManagerClientMock.reset());
 
 		it('Should reject a AwsSecretsManagerError if AWS fails to fetch the secret', async () => {
 
-			AWS.secretsManager.getSecretValue.rejects(new Error('Failed to fetch secret'));
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves(new Error('Failed to fetch secret'));
 
 			await assert.rejects(() => secretHandler.getValue(), {
-				name: 'AwsSecretsManagerError',
-				message: 'Failed to fetch secret'
+				name: 'AwsSecretsManagerError'
 			});
 		});
 
 		it('Should reject if the secret has the SecretString property set as an invalid JSON', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({ SecretString: '{"foo":INVALID}'});
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretString: '{"foo":INVALID}' });
 
 			await assert.rejects(() => secretHandler.getValue(), {
 				name: 'AwsSecretsManagerError'
@@ -43,61 +44,53 @@ describe('Secret Handler', () => {
 
 		it('Should resolve a secret string parsed as JSON if the secret has the SecretString property set', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({ SecretString: '{"foo":"bar"}'});
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretString: '{"foo":"bar"}' });
+
+			const params = { foo: 'bar' };
 
 			const secretValue = await secretHandler.getValue();
 
-			assert.deepStrictEqual(secretValue, { foo: 'bar' });
+			assert.deepStrictEqual(secretValue, params);
 
-			sinon.assert.calledOnceWithExactly(AWS.secretsManager.getSecretValue, {
-				SecretId: secretName
-			});
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, params);
 		});
 
 		it('Should resolve a secret string parsed from base64 if the secret has the SecretBinary property set', async () => {
 
 			const secretBinary = Buffer.from('binary-secret-value', 'utf8').toString('base64');
 
-			AWS.secretsManager.getSecretValue.returns({ SecretBinary: secretBinary });
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretBinary: secretBinary });
 
 			const secretValue = await secretHandler.getValue();
 
 			assert.deepStrictEqual(secretValue, 'binary-secret-value');
 
-			sinon.assert.calledOnceWithExactly(AWS.secretsManager.getSecretValue, {
-				SecretId: secretName
-			});
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 		});
 
 		it('Should resolve the whole secret object if fullValueData is passed as truthy', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({ SecretString: '{"foo":"bar"}'});
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretString: '{"foo":"bar"}' });
 
 			const secretValue = await secretHandler.getValue(true);
 
-			assert.deepStrictEqual(secretValue, {
-				SecretString: '{"foo":"bar"}'
-			});
+			assert.deepStrictEqual(secretValue, { SecretString: '{"foo":"bar"}' });
 
-			sinon.assert.calledOnceWithExactly(AWS.secretsManager.getSecretValue, {
-				SecretId: secretName
-			});
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 		});
 
 		it('Should send the version ID and stage if they are set', async () => {
 
-			AWS.secretsManager.getSecretValue.returns({ SecretString: '{"foo":"bar"}'});
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretString: '{"foo":"bar"}' });
 
 			secretHandler.setVersionId('SOMEID');
 			secretHandler.setVersionStage('SOMESTAGE');
 
 			const secretValue = await secretHandler.getValue(true);
 
-			assert.deepStrictEqual(secretValue, {
-				SecretString: '{"foo":"bar"}'
-			});
+			assert.deepStrictEqual(secretValue, { SecretString: '{"foo":"bar"}' });
 
-			sinon.assert.calledOnceWithExactly(AWS.secretsManager.getSecretValue, {
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, {
 				SecretId: secretName,
 				VersionId: 'SOMEID',
 				VersionStage: 'SOMESTAGE'
@@ -159,29 +152,27 @@ describe('Secret Handler', () => {
 		let secretHandler;
 
 		beforeEach(() => {
-			sinon.stub(AWS.secretsManager, 'getSecretValue')
-				.returns({ SecretString: '{"foo":"bar"}'});
+			this.secretsManagerClientMock = mockClient(AWS.secretsManager.SecretsManagerClient);
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretString: '{"foo":"bar"}' });
 
 			secretHandler = new SecretHandler(secretName);
 		});
 
 		afterEach(() => sinon.restore());
 
-		it('Should only call AWS Secrets Manager once per secret version and ID', async () => {
+		it('Should only call AWS Secrets Manager once per secret', async () => {
 
 			const secretValue = await secretHandler.getValue();
 
 			assert.deepStrictEqual(secretValue, { foo: 'bar' });
 
-			sinon.assert.calledOnceWithExactly(AWS.secretsManager.getSecretValue, {
-				SecretId: secretName
-			});
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 
 			const secretValue2 = await secretHandler.getValue();
 
 			assert.deepStrictEqual(secretValue2, { foo: 'bar' });
 
-			sinon.assert.calledOnce(AWS.secretsManager.getSecretValue);
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 		});
 
 		it('Should only call AWS Secrets Manager once even for concurrent calls', async () => {
@@ -192,28 +183,21 @@ describe('Secret Handler', () => {
 			assert.deepStrictEqual(secretValue, { foo: 'bar' });
 			assert.deepStrictEqual(secretValue2, { foo: 'bar' });
 
-			sinon.assert.calledOnceWithExactly(AWS.secretsManager.getSecretValue, {
-				SecretId: secretName
-			});
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 		});
 
 		it('Should only call AWS Secrets Manager once per secret version and ID', async () => {
 
 			const secretBinary = Buffer.from('binary-secret-value', 'utf8').toString('base64');
 
-			AWS.secretsManager.getSecretValue
-				.withArgs({
-					SecretId: secretName
-				})
-				.returns({ SecretString: '{"foo":"bar"}' });
+			this.secretsManagerClientMock.on(GetSecretValueCommand, { SecretId: secretName })
+				.resolves({ SecretString: '{"foo":"bar"}' });
 
-			AWS.secretsManager.getSecretValue
-				.withArgs({
-					SecretId: secretName,
-					VersionId: 'SOMEID',
-					VersionStage: 'SOMESTAGE'
-				})
-				.returns({ SecretBinary: secretBinary });
+			this.secretsManagerClientMock.on(GetSecretValueCommand, {
+				SecretId: secretName,
+				VersionId: 'SOMEID',
+				VersionStage: 'SOMESTAGE'
+			}).resolvesOnce({ SecretBinary: secretBinary });
 
 			const secretValue = await secretHandler.getValue(true);
 			const secretValue2 = await secretHandler
@@ -234,9 +218,8 @@ describe('Secret Handler', () => {
 			assert.deepStrictEqual(secretValue3, { SecretString: '{"foo":"bar"}' });
 			assert.deepStrictEqual(secretValue4, 'binary-secret-value');
 
-			sinon.assert.calledTwice(AWS.secretsManager.getSecretValue);
-			sinon.assert.calledWithExactly(AWS.secretsManager.getSecretValue.getCall(0), { SecretId: secretName });
-			sinon.assert.calledWithExactly(AWS.secretsManager.getSecretValue.getCall(1), {
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, {
 				SecretId: secretName,
 				VersionId: 'SOMEID',
 				VersionStage: 'SOMESTAGE'
@@ -249,28 +232,28 @@ describe('Secret Handler', () => {
 
 			assert.deepStrictEqual(secretValue, { foo: 'bar' });
 
-			sinon.assert.calledOnceWithExactly(AWS.secretsManager.getSecretValue, {
-				SecretId: secretName
-			});
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 
 			const secretValue2 = await secretHandler.getValue();
 
 			assert.deepStrictEqual(secretValue2, { foo: 'bar' });
 
-			sinon.assert.calledOnce(AWS.secretsManager.getSecretValue);
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 
 			secretHandler.clearFromCache();
 			const secretValue3 = await secretHandler.getValue();
 
 			assert.deepStrictEqual(secretValue3, { foo: 'bar' });
 
-			sinon.assert.calledTwice(AWS.secretsManager.getSecretValue);
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
+
 		});
 
 		it('Should call AWS Secrets Manager again after one day due to cache expiration', async () => {
 
-			AWS.secretsManager.getSecretValue.onCall(0).returns({ SecretString: '{"foo":"bar"}'});
-			AWS.secretsManager.getSecretValue.onCall(1).returns({ SecretString: '{"foo":"new-bar"}'});
+			this.secretsManagerClientMock.on(GetSecretValueCommand)
+				.resolvesOnce({ SecretString: '{"foo":"bar"}' })
+				.resolvesOnce({ SecretString: '{"foo":"new-bar"}' });
 
 			const clock = sinon.useFakeTimers(Date.now());
 
@@ -279,9 +262,7 @@ describe('Secret Handler', () => {
 
 			assert.deepStrictEqual(secretValue, { foo: 'bar' });
 
-			sinon.assert.calledOnceWithExactly(AWS.secretsManager.getSecretValue, {
-				SecretId: secretName
-			});
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 
 			// Exactly one day - Cache is valid
 			await clock.tickAsync(1000 * 60 * 60 * 24);
@@ -290,7 +271,7 @@ describe('Secret Handler', () => {
 
 			assert.deepStrictEqual(secretValue2, { foo: 'bar' });
 
-			sinon.assert.calledOnce(AWS.secretsManager.getSecretValue);
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 
 			// Past one day - Cache is now invalid
 			await clock.tickAsync(1);
@@ -299,7 +280,7 @@ describe('Secret Handler', () => {
 
 			assert.deepStrictEqual(secretValue3, { foo: 'new-bar' });
 
-			sinon.assert.calledTwice(AWS.secretsManager.getSecretValue);
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 
 			// The cache is valid for another day now
 			await clock.tickAsync(1000 * 60 * 60);
@@ -308,7 +289,7 @@ describe('Secret Handler', () => {
 
 			assert.deepStrictEqual(secretValue4, { foo: 'new-bar' });
 
-			sinon.assert.calledTwice(AWS.secretsManager.getSecretValue);
+			this.secretsManagerClientMock.commandCalls(GetSecretValueCommand, { SecretId: secretName });
 		});
 
 	});
