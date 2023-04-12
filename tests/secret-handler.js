@@ -13,10 +13,14 @@ describe('Secret Handler', () => {
 
 	const secretName = 'my-secret';
 
-	const secretString = 'LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktL';
+	const privateKey = '-----BEGIN RSA PRIVATE KEY-----' +
+					'iP0zAX1z9ngBEEW8uPTt1teaNc3dwjoCw=' +
+						'-----END RSA PRIVATE KEY-----';
+
+	const encodedKey = Buffer.from(privateKey).toString('base64');
 
 	const responseUpdate = {
-		SecretString: secretString,
+		SecretString: encodedKey,
 		VersionId: '26tf-90ab-cdef-fedc-ba987',
 		VersionStage: 'AWSCURRENT'
 	};
@@ -117,13 +121,26 @@ describe('Secret Handler', () => {
 
 		afterEach(() => this.secretsManagerClientMock.reset());
 
-
 		it('Should reject a AwsSecretsManagerError if AWS fails to fetch the secret', async () => {
 
 			this.secretsManagerClientMock.on(UpdateSecretCommand).rejects('Failed to fetch secret');
 
-			await assert.rejects(() => secretHandler.updateValue('secret'), {
+			await assert.rejects(() => secretHandler.updateValue(privateKey), {
 				name: 'AwsSecretsManagerError'
+			});
+		});
+
+		it('Should reject if it fails to parse the secret', async () => {
+
+			this.secretsManagerClientMock.on(UpdateSecretCommand).resolves(responseUpdate);
+
+			await assert.rejects(() => secretHandler.updateValue(), {
+				name: 'AwsSecretsManagerError'
+			});
+
+			this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, {
+				SecretId: secretName,
+				SecretString: encodedKey
 			});
 		});
 
@@ -131,13 +148,13 @@ describe('Secret Handler', () => {
 
 			this.secretsManagerClientMock.on(UpdateSecretCommand).resolves(responseUpdate);
 
-			const secretValue = await secretHandler.updateValue(secretString);
+			const secretValue = await secretHandler.updateValue(privateKey);
 
 			assert.deepStrictEqual(secretValue, responseUpdate);
 
 			this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, {
 				SecretId: secretName,
-				SecretString: secretString
+				SecretString: encodedKey
 			});
 		});
 
@@ -148,13 +165,13 @@ describe('Secret Handler', () => {
 			secretHandler.setVersionId('SOMEID');
 			secretHandler.setVersionStage('SOMESTAGE');
 
-			const secretValue = await secretHandler.updateValue(secretString);
+			const secretValue = await secretHandler.updateValue(privateKey);
 
 			assert.deepStrictEqual(secretValue, responseUpdate);
 
 			this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, {
 				SecretId: secretName,
-				SecretString: secretString,
+				SecretString: encodedKey,
 				VersionId: 'SOMEID',
 				VersionStage: 'SOMESTAGE'
 			});
