@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.0.3] - 2023-04-21
+### Fixed
+- Moved `aws-sdk-client-mock` to dev dependencies to reduce package bundle size
+
 ## [1.0.2] - 2023-03-09
 ### Fixed
 - Update dependencies and improve tests
