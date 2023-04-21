@@ -34,6 +34,12 @@ It rejects an `AwsSecretsManagerError` in case an error occurs (network error, n
 
 **Cache:** The values are cached for 1 day. After that, it will be fetched again from AWS. This reduces API calls and therefore costs significantly. You can clear the cache manually anytime by calling `clearFromCache()`
 
+#### `async updateValue(secretString: string): object`
+
+Modifies the value of a secret, encoded it on base64. The new value will be cached with the new VersionId returned
+
+It rejects an `AwsSecretsManagerError` in case an error occurs (network error, encoding error, etc).
+
 #### `setVersionId(): this`
 
 Sets the version ID to be handled.
@@ -59,6 +65,9 @@ const secretHandler = AwsSecretsManager.secret('my-secret-name-or-arn');
 
 // Get the value with VersionStage of AWSCURRENT
 const value = await secretHandler.getValue();
+
+// Update the value of the secret
+const newValue = await secretHandler.updateValue('new-secret-string');
 
 // Get an specific VersionStage
 const previousValue  = await secretHandler.setVersionStage('AWSPREVIOUS');
