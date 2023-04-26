@@ -24,17 +24,17 @@ describe('Secret Handler', () => {
 	const secretString = JSON.stringify(secret);
 
 	const responseUpdate = {
-		SecretString: secretString,
-		VersionId: '26tf-90ab-cdef-fedc-ba987',
-		VersionStage: 'AWSCURRENT'
+		VersionId: '26tf-90ab-cdef-fedc-ba987'
 	};
 
-	const paramsUpdateSecret = {
+	const paramsUpdateWithSecretString = {
 		SecretId: secretName,
-		SecretString: JSON.stringify({
-			...secret,
-			privateKey: Buffer.from(secret.privateKey).toString('base64')
-		})
+		SecretString: secretString
+	};
+
+	const paramsUpdateWithSecretBinary = {
+		SecretId: secretName,
+		SecretBinary: Buffer.from(secretString, 'utf-8').toString('base64')
 	};
 
 	describe('getValue()', () => {
@@ -133,41 +133,70 @@ describe('Secret Handler', () => {
 
 		afterEach(() => this.secretsManagerClientMock.reset());
 
-		it('Should reject a AwsSecretsManagerError if AWS fails to fetch the secret', async () => {
+		it('Should reject a AwsSecretsManagerError if AWS fails to fetch the current secret', async () => {
 
-			this.secretsManagerClientMock.on(UpdateSecretCommand).rejects('Failed to fetch secret');
+			this.secretsManagerClientMock.on(GetSecretValueCommand).rejects('Failed to fetch current secret');
 
 			await assert.rejects(() => secretHandler.updateValue(secret), {
 				name: 'AwsSecretsManagerError'
 			});
 
-			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, paramsUpdateSecret).length, 1);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(GetSecretValueCommand).length, 1);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand).length, 0);
+		});
+
+		it('Should reject a AwsSecretsManagerError if AWS fails to update the secret', async () => {
+
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretString: '{"privateKey":"dsOS2j4"}' });
+			this.secretsManagerClientMock.on(UpdateSecretCommand).rejects('Failed to update secret');
+
+			await assert.rejects(() => secretHandler.updateValue(secret), {
+				name: 'AwsSecretsManagerError'
+			});
+
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(GetSecretValueCommand).length, 1);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, paramsUpdateWithSecretString).length, 1);
 		});
 
 		it('Should reject if it fails to parse the secret', async () => {
-
-			this.secretsManagerClientMock.on(UpdateSecretCommand).resolves(responseUpdate);
 
 			await assert.rejects(() => secretHandler.updateValue(), {
 				name: 'AwsSecretsManagerError'
 			});
 
-			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, paramsUpdateSecret).length, 0);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(GetSecretValueCommand).length, 0);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand).length, 0);
 		});
 
-		it('Should update value secret with a secret string ', async () => {
+		it('Should update value secret encoding it as a secret string ', async () => {
 
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretString: '{"privateKey":"dsOS2j4"}' });
 			this.secretsManagerClientMock.on(UpdateSecretCommand).resolves(responseUpdate);
 
 			const secretValue = await secretHandler.updateValue(secret);
 
 			assert.deepStrictEqual(secretValue, responseUpdate);
 
-			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, paramsUpdateSecret).length, 1);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(GetSecretValueCommand).length, 1);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, paramsUpdateWithSecretString).length, 1);
+		});
+
+		it('Should update value secret encoding it as a secret binary ', async () => {
+
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretBinary: 'eyJmb28iOiJiYXIifQ==' });
+			this.secretsManagerClientMock.on(UpdateSecretCommand).resolves(responseUpdate);
+
+			const secretValue = await secretHandler.updateValue(secret);
+
+			assert.deepStrictEqual(secretValue, responseUpdate);
+
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(GetSecretValueCommand).length, 1);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, paramsUpdateWithSecretBinary).length, 1);
 		});
 
 		it('Should update value secret by specifying the version ID and stage if they are set ', async () => {
 
+			this.secretsManagerClientMock.on(GetSecretValueCommand).resolves({ SecretString: '{"privateKey":"dsOS2j4"}' });
 			this.secretsManagerClientMock.on(UpdateSecretCommand).resolves(responseUpdate);
 
 			secretHandler.setVersionId('SOMEID');
@@ -177,8 +206,9 @@ describe('Secret Handler', () => {
 
 			assert.deepStrictEqual(secretValue, responseUpdate);
 
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(GetSecretValueCommand).length, 1);
 			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, {
-				...paramsUpdateSecret,
+				...paramsUpdateWithSecretString,
 				VersionId: 'SOMEID',
 				VersionStage: 'SOMESTAGE'
 			}).length, 1);

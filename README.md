@@ -36,11 +36,11 @@ It rejects an `AwsSecretsManagerError` in case an error occurs (network error, n
 
 #### `async updateValue(newSecret: object): object`
 
-Modifies the value of a secret, encoded it on base64. 
+Modifies the value of a secret
 
-Saves the secret as String in SecretString property. 
+Saves the secret value in string or binary format depending on how it is currently stored
 
-The new value will be cached with the VersionId and VersionStage settled.
+The new value will be cached with the VersionId settled.
 
 It rejects an `AwsSecretsManagerError` in case an error occurs (network error, encoding error, etc).
 
