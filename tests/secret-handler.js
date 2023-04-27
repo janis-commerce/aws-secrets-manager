@@ -158,9 +158,19 @@ describe('Secret Handler', () => {
 			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand, paramsUpdateWithSecretString).length, 1);
 		});
 
-		it('Should reject if it fails to parse the secret', async () => {
+		it('Should reject if secret is not an object', async () => {
 
 			await assert.rejects(() => secretHandler.updateValue(), {
+				name: 'AwsSecretsManagerError'
+			});
+
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(GetSecretValueCommand).length, 0);
+			assert.deepStrictEqual(this.secretsManagerClientMock.commandCalls(UpdateSecretCommand).length, 0);
+		});
+
+		it('Should reject if secret has no content', async () => {
+
+			await assert.rejects(() => secretHandler.updateValue({}), {
 				name: 'AwsSecretsManagerError'
 			});
 
