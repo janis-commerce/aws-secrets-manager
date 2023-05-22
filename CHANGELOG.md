@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.1.0] - 2023-05-22
+### Added
+- New method `updateValue` to update the value of the secret
+
 ## [1.0.3] - 2023-04-21
 ### Fixed
 - Moved `aws-sdk-client-mock` to dev dependencies to reduce package bundle size

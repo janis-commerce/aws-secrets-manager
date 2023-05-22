@@ -9,7 +9,8 @@
     "watch-test": "export TEST_ENV=true; mocha --exit -R nyan -w --recursive tests/",
     "coverage": "nyc npm test",
     "lint": "eslint lib/ tests/",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "postpublish": "./.postpublish.sh"
   },
   "repository": {
     "type": "git",
