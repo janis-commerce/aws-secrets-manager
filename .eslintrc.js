@@ -10,7 +10,8 @@ module.exports = {
 	},
 
 	parserOptions: {
-		sourceType: 'script'
+		sourceType: 'script',
+		ecmaVersion: 2024
 	},
 
 	rules: {
@@ -23,6 +24,7 @@ module.exports = {
 		'consistent-return': 0,
 		'prefer-template': 0,
 		'import/no-unresolved': 0,
+		'import/extensions': 0,
 		'import/no-extraneous-dependencies': ['error', { devDependencies: ['**/tests/**/*.js'] }],
 
 		'no-bitwise': 0,
@@ -42,9 +44,9 @@ module.exports = {
 		'func-names': 0,
 
 		'space-before-function-paren': ['error', {
-			'anonymous': 'never',
-			'named': 'never',
-			'asyncArrow': 'always'
+			anonymous: 'never',
+			named: 'never',
+			asyncArrow: 'always'
 		}],
 
 		'arrow-parens': ['error', 'as-needed'],
@@ -104,6 +106,7 @@ module.exports = {
 			ObjectExpression: { minProperties: 5, multiline: true, consistent: true },
 			ObjectPattern: { minProperties: 5, multiline: true, consistent: true }
 		}],
-		'nonblock-statement-body-position': ['error', 'below', { overrides: { else: 'any' } }]
+		'nonblock-statement-body-position': ['error', 'below', { overrides: { else: 'any' } }],
+		strict: ['error', 'global']
 	}
 };
