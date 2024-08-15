@@ -20,14 +20,14 @@
   "license": "ISC",
   "homepage": "https://github.com/janis-commerce/aws-secrets-manager.git#readme",
   "devDependencies": {
-    "aws-sdk-client-mock": "^2.1.1",
-    "eslint": "^5.16.0",
-    "eslint-config-airbnb-base": "^13.1.0",
-    "eslint-plugin-import": "^2.27.5",
+    "aws-sdk-client-mock": "^4.0.1",
+    "eslint": "^8.57.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.29.1",
     "husky": "^8.0.3",
-    "mocha": "^10.2.0",
-    "nyc": "^15.1.0",
-    "sinon": "^15.0.1"
+    "mocha": "^10.7.3",
+    "nyc": "^17.0.0",
+    "sinon": "^18.0.0"
   },
   "files": [
     "lib/"
@@ -36,6 +36,6 @@
     "test": "tests"
   },
   "dependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.287.0"
+    "@aws-sdk/client-secrets-manager": "^3.632.0"
   }
 }
