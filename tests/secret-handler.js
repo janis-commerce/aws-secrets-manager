@@ -3,7 +3,7 @@
 const assert = require('assert');
 const sinon = require('sinon');
 const { mockClient } = require('aws-sdk-client-mock');
-const { GetSecretValueCommand, UpdateSecretCommand, SecretsManagerClient } = require('@aws-sdk/client-secrets-manager');
+const { GetSecretValueCommand, UpdateSecretCommand } = require('@aws-sdk/client-secrets-manager');
 
 const { upperSnakeCase } = require('../lib/helpers/upper-snake-case');
 const SecretHandler = require('../lib/secret-handler');
