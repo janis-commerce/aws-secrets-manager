@@ -3,10 +3,10 @@
 const assert = require('assert');
 const sinon = require('sinon');
 const { mockClient } = require('aws-sdk-client-mock');
-const { GetSecretValueCommand, UpdateSecretCommand } = require('@aws-sdk/client-secrets-manager');
+const { GetSecretValueCommand, UpdateSecretCommand, SecretsManagerClient } = require('@aws-sdk/client-secrets-manager');
 
+const { upperSnakeCase } = require('../lib/helpers/upper-snake-case');
 const SecretHandler = require('../lib/secret-handler');
-
 const AWS = require('../lib/wrappers/aws');
 
 describe('Secret Handler', () => {
@@ -119,6 +119,21 @@ describe('Secret Handler', () => {
 				VersionId: 'SOMEID',
 				VersionStage: 'SOMESTAGE'
 			});
+		});
+
+		it('Should resolve a Local secret string parsed as JSON if the secret has the SecretString property set', async () => {
+
+			const params = { foo: 'bar' };
+
+			process.env.JANIS_ENV = 'local';
+
+			process.env[`AWS_SM_${upperSnakeCase(secretName)}`] = JSON.stringify({ foo: 'bar' });
+
+			const secretValue = await secretHandler.getValue();
+
+			assert.deepStrictEqual(secretValue, params);
+
+			process.env.JANIS_ENV = undefined;
 		});
 	});
 
